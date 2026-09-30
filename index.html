@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Rawa Blues Run — Katowice: Spodek → NOSPR 🎸</title>
-<meta name="description" content="Gra w stylu GTA2 — czerwoną Mazdą MX-5 NB po Katowicach ze Spodka do NOSPR. Prezent urodzinowy: bilet na Rawa Blues Festival 2026.">
+<title>City Cruise — miejski wyścig 🚗</title>
+<meta name="description" content="City Cruise — dynamiczna gra samochodowa w stylu retro, widok z góry. Przejedź miasto czerwonym roadsterem i dojedź do mety.">
 <style>
   :root{
     --accent:#e23636;
@@ -105,12 +105,13 @@
 
   /* touch controls */
   #touch{position:fixed;inset:0;z-index:7;pointer-events:none;display:none}
-  #touch .pad{position:absolute;bottom:26px;width:96px;height:96px;border-radius:50%;
-    background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.25);pointer-events:auto;
-    display:flex;align-items:center;justify-content:center;font-size:30px;color:#fff;user-select:none}
-  #touch .pad:active{background:rgba(226,54,54,.4)}
-  #tLeft{left:20px}#tRight{left:135px}
-  #tUp{right:20px;bottom:135px}#tDown{right:20px}
+  #touch .pad{position:absolute;bottom:30px;width:104px;height:104px;border-radius:50%;
+    background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.32);pointer-events:auto;
+    display:flex;align-items:center;justify-content:center;font-size:34px;color:#fff;user-select:none;
+    touch-action:none;backdrop-filter:blur(2px);box-shadow:0 6px 18px rgba(0,0,0,.35)}
+  #touch .pad:active{background:rgba(226,54,54,.5);transform:scale(.94)}
+  #tLeft{left:22px}#tRight{left:148px}
+  #tUp{right:22px;bottom:150px}#tDown{right:22px}
 </style>
 </head>
 <body>
@@ -119,8 +120,8 @@
 
 <!-- HUD -->
 <div id="objective" class="hud hidden">
-  <div class="tag">Misja specjalna 🎸</div>
-  <div class="goal">Dojedź do <b>NOSPR</b></div>
+  <div class="tag">Cel 🏁</div>
+  <div class="goal">Dojedź do <b>METY</b></div>
   <div class="dist" id="distText">—</div>
 </div>
 <div id="hint" class="hud hidden">
@@ -132,11 +133,11 @@
 <div id="speedo" class="hud hidden">
   <div class="kmh" id="kmh">0</div>
   <div class="unit">KM/H</div>
-  <div class="gear" id="gear">🔴 Mazda MX-5 NB</div>
+  <div class="gear" id="gear">BIEG: D</div>
 </div>
 <div id="minimapWrap" class="hud hidden">
   <canvas id="minimap" width="150" height="110"></canvas>
-  <div class="lbl">Strefa Kultury</div>
+  <div class="lbl">Mapa</div>
 </div>
 <button id="muteBtn" class="hidden">🔊 Dźwięk: WŁ</button>
 
@@ -151,10 +152,10 @@
 <!-- Start overlay -->
 <div class="overlay" id="startScreen">
   <div class="card">
-    <h1>Rawa Blues Run 🎸🚗</h1>
-    <h2>Katowice, Strefa Kultury — za kierownicą czerwonej&nbsp;<b>Mazdy&nbsp;MX-5&nbsp;NB</b></h2>
-    <p>Masz <b>misję specjalną</b>. Rusz spod <b>Spodka</b> i przejedź ulicami Katowic aż pod
-    <b>NOSPR</b>. Kiedy tam dotrzesz — czeka na Ciebie <b>prezent</b> 🎁</p>
+    <h1>City Cruise 🚗</h1>
+    <h2>Wskakuj za kierownicę roadstera i pokaż, co potrafisz na miejskich ulicach.</h2>
+    <p>Wystartuj i przejedź przez miasto aż do <b>mety</b>. Ostro na gazie, ale uważaj na
+    budynki — kieruj się strzałką i minimapą.</p>
     <div class="keys-legend">
       <span><b>↑ ↓</b> gaz / hamulec</span>
       <span><b>← →</b> skręt</span>
@@ -235,62 +236,88 @@ window.addEventListener('resize', resize); resize();
 
 /* ---------------- WORLD MAP ---------------- */
 // World is 3400 x 2300. Roads = drivable, buildings block, grass slows.
-const WORLD = { w: 3400, h: 2300 };
+// Map stylizowana na Katowice: dworzec/Galeria Katowicka (płd) -> centrum/Rynek
+// -> Rondo -> al. Roździeńskiego -> Strefa Kultury (meta na płn-wsch).
+const WORLD = { w: 3600, h: 2600 };
 
-// Roads as rectangles {x,y,w,h}
+// Roads as rectangles {x,y,w,h,big?}
 const ROADS = [
-  // main avenue (al. Roździeńskiego) horizontal
-  {x:0,   y:1040, w:3400, h:150},
-  // northern parallel street
-  {x:0,   y:520,  w:3400, h:110},
-  // southern parallel street
-  {x:0,   y:1650, w:3400, h:110},
-  // vertical connectors (al. Korfantego style)
-  {x:430, y:0,    w:120,  h:2300},
-  {x:1180,y:0,    w:120,  h:2300},
-  {x:1950,y:0,    w:120,  h:2300},
-  {x:2650,y:0,    w:120,  h:2300},
-  // diagonal-ish approach street to NOSPR area (extra)
-  {x:2760,y:800,  w:520,  h:110},
+  // DTŚ / al. Górnośląska — trasa średnicowa (płd, przez całą szerokość, wielopasmowa)
+  {x:0,    y:2380, w:3600, h:190, big:true},
+  // al. Korfantego / ul. Dworcowa — główna oś płn-płd (dworzec -> Rondo)
+  {x:1440, y:1150, w:150,  h:1250},
+  // ul. Chorzowska — na zachód od Ronda
+  {x:0,    y:1085, w:1590, h:135},
+  // al. W. Roździeńskiego — na wschód od Ronda (szeroka) do Strefy Kultury
+  {x:1440, y:1075, w:2160, h:175, big:true},
+  // Strefa Kultury — droga dojazdowa (płn) do mety
+  {x:2870, y:300,  w:150,  h:860},
+  // Strefa Kultury — uliczka wewnętrzna (wsch-zach)
+  {x:2380, y:560,  w:900,  h:120},
+  // ul. 3 Maja / Warszawska — centrum, wsch-zach przy Rynku
+  {x:500,  y:1620, w:2100, h:100},
+  // ul. Jagiellońska — centrum, wsch-zach
+  {x:640,  y:1400, w:1700, h:85},
+  // plac przy dworcu — wsch-zach przy stacji
+  {x:760,  y:2080, w:1600, h:95},
+  // ul. Sokolska — płn-płd, centrum-zachód
+  {x:1020, y:1150, w:90,   h:1250},
+  // ul. Francuska — płn-płd, centrum-wschód
+  {x:2000, y:1075, w:90,   h:1325},
+  // ul. Bytkowska — północna wsch-zach
+  {x:0,    y:640,  w:2400, h:100},
+  // łącznik północny
+  {x:760,  y:640,  w:90,   h:580},
 ];
 
-// Roundabout (Rondo) center
-const RONDO = {x:1240, y:1115, r:150};
+// Rondo im. gen. J. Ziętka — węzeł Korfantego / Chorzowska / Roździeńskiego
+const RONDO = {x:1515, y:1150, r:180};
 
 // Buildings (blocks) {x,y,w,h,c}
 const B = (x,y,w,h,c)=>({x,y,w,h,c});
 const BUILDINGS = [
-  B(120,700,250,230,'#3a4152'), B(650,680,300,220,'#444c60'),
-  B(120,1280,240,250,'#3f4759'), B(660,1280,280,240,'#4a5268'),
-  B(1450,700,300,230,'#3a4152'), B(1450,1280,320,250,'#464e63'),
-  B(2200,700,360,230,'#3f4759'), B(2200,1300,340,230,'#444c60'),
-  B(120,120,300,260,'#353c4b'), B(760,120,320,240,'#3d4456'),
-  B(1470,120,340,260,'#3a4152'), B(2250,120,340,240,'#404859'),
-  B(120,1900,300,260,'#3a4152'), B(760,1900,340,220,'#464e63'),
-  B(1470,1900,340,260,'#3d4456'), B(2250,1900,360,220,'#414a5c'),
-  B(2950,1280,320,250,'#464e63'), B(2950,120,320,260,'#3a4152'),
-  B(2950,1900,320,220,'#3d4456'),
+  // --- okolice dworca / płd centrum ---
+  B(900, 2150, 320, 205, '#3d4456'),   // Dworzec Katowice (zach od osi)
+  // --- centrum: między 3 Maja / Jagiellońską / placem ---
+  B(680, 1490, 270, 105, '#444c60'), B(1150,1490,230,105,'#3f4759'), B(2100,1490,380,105,'#464e63'),
+  B(680, 1720, 270, 300, '#3a4152'), B(1150,1720,230,300,'#4a5268'), B(2100,1720,380,300,'#414a5c'),
+  // --- rejon Rynku (płn centrum) ---
+  B(680, 1250, 270, 110, '#3d4456'), B(2140,1300,340,250,'#444c60'),
+  // --- zachód / płn-zachód ---
+  B(120, 760, 360, 260, '#353c4b'), B(960, 800, 380, 210, '#3f4759'),
+  // --- północ (nad Bytkowską) ---
+  B(120, 300, 360, 250, '#3a4152'), B(980, 300, 400, 230, '#3d4456'),
+  B(1520,300, 400, 230, '#404859'), B(2030,300, 300, 230, '#3f4759'),
+  // --- wschód centrum ---
+  B(2560,1310,360,250,'#464e63'), B(3060,1310,360,250,'#3a4152'),
+  B(2560,1720,360,300,'#3d4456'), B(3060,1720,360,300,'#414a5c'),
+  // --- Strefa Kultury (bryły nowoczesne, bez podpisów) ---
+  B(2380,300, 380, 210, '#4a444f'),    // centrum kongresowe (skośna bryła)
+  B(3170,540, 320, 250, '#3a4450'),    // szklana bryła muzeum
 ];
 
 // Landmarks
-const SPODEK = {x:430, y:1900, r:150};      // start (iconic UFO arena, south-west)
-const NOSPR  = {x:3080, y:760, w:280, h:200}; // destination (NE, near the approach street)
+const START   = {x:1515, y:2240};             // DoTea / Galeria Katowicka (płd, przy dworcu)
+const GALERIA = {x:1660, y:2175, w:340, h:195};// galeria handlowa obok startu
+const ARENA   = {x:2480, y:880, r:150};        // okrągła hala miejska (dekoracja, bez podpisu)
+const NOSPR   = {x:2790, y:300, w:300, h:200}; // META (odsłona dopiero po dojechaniu)
 const NOSPR_CENTER = {x:NOSPR.x+NOSPR.w/2, y:NOSPR.y+NOSPR.h/2};
+const RIVER   = {x:0, y:930, w:3600, h:34};    // rzeka Rawa (dekoracja)
 
 // Decorative trees (parks) — positions in grass
 const TREES = [];
 (function(){
-  const spots=[[300,430],[560,430],[1600,460],[2100,470],[2850,470],
-    [300,1480],[1000,1500],[1900,1520],[2700,1520],[350,2000],[1200,2050],
-    [2000,2060],[1650,1250],[900,930],[2450,980]];
+  const spots=[[300,470],[560,470],[1700,470],[2250,470],[2900,860],
+    [300,1500],[1300,1560],[1780,1300],[2750,900],[3300,960],
+    [520,2000],[1300,2260],[2300,2260],[1650,1180],[2650,1180]];
   for(const [x,y] of spots) for(let i=0;i<3;i++)
     TREES.push({x:x+(Math.random()*60-30),y:y+(Math.random()*60-30),r:12+Math.random()*8});
 })();
 
 /* ---------------- CAR ---------------- */
 const car = {
-  x: SPODEK.x, y: SPODEK.y - 30,
-  angle: -Math.PI/2,   // facing up
+  x: START.x, y: START.y,
+  angle: -Math.PI/2,   // dziobem na północ (jedziemy w górę mapy)
   speed: 0,
   steer: 0,
 };
@@ -334,7 +361,10 @@ function bindTouch(id,key){
   el.addEventListener('mousedown',on);el.addEventListener('mouseup',off);el.addEventListener('mouseleave',off);
 }
 bindTouch('tUp','up');bindTouch('tDown','down');bindTouch('tLeft','left');bindTouch('tRight','right');
-if('ontouchstart' in window){ document.getElementById('touch').style.display='block'; }
+// Pokaż sterowanie dotykowe na telefonach/tabletach (dotyk lub „gruby" wskaźnik)
+const IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints>0) ||
+  (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+if(IS_TOUCH){ document.getElementById('touch').style.display='block'; }
 
 /* ---------------- AUDIO (simple WebAudio engine) ---------------- */
 let actx=null, engineOsc=null, engineGain=null, muted=false;
@@ -383,7 +413,12 @@ function hitsBuilding(x,y,cr){
   // rondo center island
   const dx=x-RONDO.x, dy=y-RONDO.y;
   if(dx*dx+dy*dy < (RONDO.r-42)*(RONDO.r-42)) return true;
-  // NOSPR building is solid too (we stop just in front via trigger zone)
+  // round arena (solid)
+  const ax=x-ARENA.x, ay=y-ARENA.y;
+  if(ax*ax+ay*ay < (ARENA.r+cr)*(ARENA.r+cr)) return true;
+  // Galeria mall (solid)
+  if(circleRect(x,y,cr,GALERIA)) return true;
+  // NOSPR/meta building is solid too (we stop just in front via trigger zone)
   return false;
 }
 
@@ -400,7 +435,7 @@ function startGame(){
   ensureAudio();
 }
 function resetCar(){
-  car.x=SPODEK.x; car.y=SPODEK.y-30; car.angle=-Math.PI/2; car.speed=0; lateral=0;
+  car.x=START.x; car.y=START.y; car.angle=-Math.PI/2; car.speed=0; lateral=0;
   arrived=false;
 }
 document.getElementById('startBtn').addEventListener('click',startGame);
@@ -501,9 +536,9 @@ function onArrive(){
 function updateHUD(dist){
   const kmh=Math.round(Math.abs(car.speed)/CAR.maxSpeed*180);
   document.getElementById('kmh').textContent=kmh;
-  document.getElementById('gear').textContent = car.speed<-0.1 ? '⬅ WSTECZNY' : '🔴 Mazda MX-5 NB';
+  document.getElementById('gear').textContent = car.speed<-0.1 ? 'BIEG: R' : 'BIEG: D';
   const m=Math.round(dist/6); // fake meters
-  document.getElementById('distText').innerHTML = `Odległość do NOSPR: <b>${m} m</b>`;
+  document.getElementById('distText').innerHTML = `Odległość do mety: <b>${m} m</b>`;
 }
 
 /* ---------------- RENDER ---------------- */
@@ -530,6 +565,12 @@ function render(){
 
   ctx.save();
   ctx.translate(-camX,-camY);
+
+  // ---- river Rawa (decor, under roads/bridges) ----
+  ctx.fillStyle='#22506b';
+  ctx.fillRect(RIVER.x,RIVER.y,RIVER.w,RIVER.h);
+  ctx.fillStyle='rgba(120,180,210,.25)';
+  ctx.fillRect(RIVER.x,RIVER.y+4,RIVER.w,3);
 
   // ---- roads ----
   for(const r of ROADS){
@@ -586,10 +627,13 @@ function render(){
     ctx.fillStyle='#3c7043';ctx.beginPath();ctx.arc(tr.x-2,tr.y-2,tr.r*0.6,0,7);ctx.fill();
   }
 
-  // ---- SPODEK (iconic UFO arena) ----
-  drawSpodek();
+  // ---- round city arena (decor, no label) ----
+  drawArena();
 
-  // ---- NOSPR ----
+  // ---- START: Galeria Katowicka / DoTea ----
+  drawStart();
+
+  // ---- FINISH (META) ----
   drawNospr();
 
   // ---- CAR ----
@@ -603,41 +647,57 @@ function render(){
   renderMinimap();
 }
 
-function drawSpodek(){
-  const s=SPODEK;
-  // plaza
-  ctx.fillStyle='#3a3f49';ctx.beginPath();ctx.arc(s.x,s.y,s.r+70,0,7);ctx.fill();
-  // saucer base ring
-  ctx.fillStyle='#6b7280';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);ctx.fill();
-  ctx.fillStyle='#8a93a3';ctx.beginPath();ctx.arc(s.x,s.y,s.r-14,0,7);ctx.fill();
-  // roof segments
-  ctx.strokeStyle='rgba(40,44,52,.9)';ctx.lineWidth=3;
-  for(let i=0;i<24;i++){const a=i/24*Math.PI*2;
-    ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x+Math.cos(a)*(s.r-14),s.y+Math.sin(a)*(s.r-14));ctx.stroke();}
-  // dome
-  ctx.fillStyle='#aeb6c4';ctx.beginPath();ctx.arc(s.x,s.y,s.r-58,0,7);ctx.fill();
-  ctx.fillStyle='#c7cedb';ctx.beginPath();ctx.arc(s.x-6,s.y-6,s.r-74,0,7);ctx.fill();
-  // label
-  label(s.x,s.y+s.r+40,'SPODEK',"#ffcb3d",16);
-  label(s.x,s.y+s.r+58,'★ START',"#e23636",12);
+// Generyczna okrągła hala miejska — dekoracja, BEZ podpisu (nie zdradza niczego)
+function drawArena(){
+  const s=ARENA;
+  ctx.fillStyle='#343a44';ctx.beginPath();ctx.arc(s.x,s.y,s.r+50,0,7);ctx.fill(); // plac
+  ctx.fillStyle='#5b6472';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);ctx.fill();
+  ctx.fillStyle='#727c8c';ctx.beginPath();ctx.arc(s.x,s.y,s.r-16,0,7);ctx.fill();
+  ctx.strokeStyle='rgba(40,44,52,.8)';ctx.lineWidth=2;
+  for(let i=0;i<20;i++){const a=i/20*Math.PI*2;
+    ctx.beginPath();ctx.moveTo(s.x+Math.cos(a)*(s.r-16),s.y+Math.sin(a)*(s.r-16));
+    ctx.lineTo(s.x+Math.cos(a)*(s.r-52),s.y+Math.sin(a)*(s.r-52));ctx.stroke();}
+  ctx.fillStyle='#868f9e';ctx.beginPath();ctx.arc(s.x,s.y,s.r-52,0,7);ctx.fill();
 }
 
+// START — Galeria Katowicka + herbaciarnia DoTea
+function drawStart(){
+  const g=GALERIA;
+  // bryła galerii (szklana)
+  ctx.fillStyle='rgba(0,0,0,.4)';ctx.fillRect(g.x+7,g.y+9,g.w,g.h);
+  ctx.fillStyle='#2f4a58';ctx.fillRect(g.x,g.y,g.w,g.h);
+  ctx.fillStyle='rgba(150,210,235,.18)';
+  for(let wx=g.x+12;wx<g.x+g.w-10;wx+=22)
+    for(let wy=g.y+12;wy<g.y+g.h-10;wy+=20) ctx.fillRect(wx,wy,15,13);
+  ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect(g.x,g.y,g.w,7);
+  // punkt startowy DoTea (mała pinezka z kubkiem)
+  const sx=START.x, sy=START.y;
+  ctx.fillStyle='#2e7d5b';ctx.beginPath();ctx.arc(sx,sy,15,0,7);ctx.fill();
+  ctx.fillStyle='#fff';ctx.font='700 15px Segoe UI, Arial';ctx.textAlign='center';
+  ctx.fillText('🧋',sx,sy+5);
+  // pasek START na jezdni
+  const gy=sy-34;
+  for(let i=0;i<8;i++){
+    ctx.fillStyle=(i&1)?'#fff':'#111';ctx.fillRect(sx-64+i*16,gy,16,9);
+    ctx.fillStyle=(i&1)?'#111':'#fff';ctx.fillRect(sx-64+i*16,gy+9,16,9);
+  }
+  label(g.x+g.w/2, g.y-12, 'GALERIA KATOWICKA', '#9fd0e0', 14);
+  label(sx, sy+34, 'START · DoTea', '#ffcb3d', 13);
+}
+
+// META (cel) — bryła stylizowana, podpis tylko „META" (żadnego NOSPR/prezentu)
 function drawNospr(){
   const n=NOSPR;
   ctx.fillStyle='rgba(0,0,0,.4)';ctx.fillRect(n.x+8,n.y+10,n.w,n.h);
-  // main brick-dark modern block
   ctx.fillStyle='#4a3b3f';ctx.fillRect(n.x,n.y,n.w,n.h);
   ctx.fillStyle='#5a474c';ctx.fillRect(n.x,n.y,n.w,8);
-  // vertical fins (NOSPR facade motif)
   ctx.fillStyle='rgba(255,220,180,.10)';
   for(let fx=n.x+10;fx<n.x+n.w-6;fx+=16) ctx.fillRect(fx,n.y+14,7,n.h-26);
-  // glowing entrance
   ctx.fillStyle='rgba(255,203,61,.9)';
   ctx.fillRect(n.x+n.w/2-28,n.y+n.h-16,56,16);
-  // finish glow zone
+  // strefa mety
   ctx.strokeStyle='rgba(255,203,61,.5)';ctx.lineWidth=3;ctx.setLineDash([10,8]);
   ctx.strokeRect(n.x-40,n.y+n.h, n.w+80, 110);ctx.setLineDash([]);
-  // checkered finish line
   const gy=n.y+n.h+6;
   for(let i=0;i<Math.floor((n.w+80)/16);i++){
     ctx.fillStyle=(i&1)?'#fff':'#111';
@@ -645,8 +705,7 @@ function drawNospr(){
     ctx.fillStyle=(i&1)?'#111':'#fff';
     ctx.fillRect(n.x-40+i*16,gy+10,16,10);
   }
-  label(n.x+n.w/2,n.y-14,'NOSPR',"#ffcb3d",18);
-  label(n.x+n.w/2,n.y+n.h+50,'🎁 META — PREZENT',"#e23636",13);
+  label(n.x+n.w/2,n.y+n.h+50,'🏁 META',"#ffcb3d",16);
 }
 
 function label(x,y,txt,color,size){
@@ -704,7 +763,7 @@ function drawNavArrow(camX,camY){
   ctx.beginPath();ctx.moveTo(18,0);ctx.lineTo(-10,-11);ctx.lineTo(-4,0);ctx.lineTo(-10,11);ctx.closePath();ctx.fill();
   ctx.restore();
   ctx.font='700 12px Segoe UI, Arial';ctx.fillStyle='#ffcb3d';ctx.textAlign='center';
-  ctx.fillText('NOSPR',ax,ay-16);ctx.textAlign='left';
+  ctx.fillText('META',ax,ay-16);ctx.textAlign='left';
 }
 
 /* ---------------- MINIMAP ---------------- */
@@ -716,7 +775,7 @@ function renderMinimap(){
   for(const r of ROADS) mmc.fillRect(r.x*sx,r.y*sy,r.w*sx,r.h*sy);
   mmc.beginPath();mmc.arc(RONDO.x*sx,RONDO.y*sy,RONDO.r*sx,0,7);mmc.fill();
   // spodek
-  mmc.fillStyle='#8a93a3';mmc.beginPath();mmc.arc(SPODEK.x*sx,SPODEK.y*sy,5,0,7);mmc.fill();
+  mmc.fillStyle='#2e7d5b';mmc.beginPath();mmc.arc(START.x*sx,START.y*sy,4,0,7);mmc.fill();
   // nospr
   mmc.fillStyle='#ffcb3d';mmc.fillRect(NOSPR.x*sx-2,NOSPR.y*sy-2,6,6);
   // car
